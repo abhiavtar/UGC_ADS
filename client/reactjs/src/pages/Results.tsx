@@ -14,30 +14,49 @@ import { GhostButton, PrimaryButton } from "../components/Buttons";
 import api from "../configs/axios";
 import toast from "react-hot-toast";
 
+const isUsableUrl = (url?: string | null) => {
+  if (!url) return false;
+
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 const Result = () => {
   const { projectId } = useParams();
   const { getToken } = useAuth();
-  const{user,isLoaded}= useUser();
+  const { user, isLoaded } = useUser();
   const navigate = useNavigate();
   const [project, setProjectData] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const fetchProjectData = async () => {
     try {
-        const token = await getToken()
-        const { data } = await api.get(`/api/user/projects/${projectId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        })
+      if (!projectId) {
+        setLoading(false);
+        return;
+      }
 
-        setProjectData(data.project)
-        setIsGenerating(data.project.isGenerating)
-        setLoading(false)
+      const token = await getToken();
+      const { data } = await api.get(`/api/user/projects/${projectId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setProjectData(data.project);
+      setIsGenerating(Boolean(data.project.isGenerating));
+      setImageFailed(false);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error.message);
       console.log(error);
+    } finally {
+      setLoading(false);
     }
-}
+  };
 
   const handleGenerateVideo = async () => {
     if (!project) {
@@ -74,24 +93,24 @@ const Result = () => {
 
   useEffect(() => {
     if (user && !project?.id) {
-        fetchProjectData()
+      fetchProjectData();
     } else if (isLoaded && !user) {
-        navigate('/')
+      navigate("/");
     }
-}, [user])
+  }, [user, isLoaded, project?.id, projectId]);
 
-// Fetch project every 10 seconds
-useEffect(() => {
-  if (user && isGenerating) {
+  // Fetch project while the backend is still generating the image/video.
+  useEffect(() => {
+    const waitingForImage = project && !project.generatedImage && !project.error;
+
+    if (user && (isGenerating || waitingForImage)) {
       const interval = setInterval(() => {
-          fetchProjectData()
-      }, 10000);
+        fetchProjectData();
+      }, 5000);
 
-      return () => clearInterval(interval)
-  }
-}, [user, isGenerating])
-
-
+      return () => clearInterval(interval);
+    }
+  }, [user, isGenerating, project?.generatedImage, project?.error]);
 
   // Keep the page stable while the result data is being fetched.
   if (loading) {
@@ -113,6 +132,11 @@ useEffect(() => {
       </div>
     );
   }
+
+  const hasGeneratedImage = isUsableUrl(project.generatedImage);
+  const hasGeneratedVideo = isUsableUrl(project.generatedVideo);
+  const stillGeneratingImage =
+    project.isGenerating && !hasGeneratedImage && !project.error;
 
   return (
     <div className="min-h-screen text-white p-6 md:p-12 mt-20 light:text-slate-950">
@@ -142,7 +166,7 @@ useEffect(() => {
                     : "aspect-video"
                 } sm:max-h-[600px] rounded-xl bg-gray-900 overflow-hidden relative light:bg-slate-100`}
               >
-                {project?.generatedVideo ? (
+                {hasGeneratedVideo ? (
                   <video
                     src={project.generatedVideo}
                     controls
@@ -150,12 +174,39 @@ useEffect(() => {
                     loop
                     className="w-full h-full object-cover"
                   />
-                ) : (
+                ) : hasGeneratedImage && !imageFailed ? (
                   <img
                     src={project.generatedImage}
                     alt="Generated Result"
                     className="w-full h-full object-cover"
+                    onError={() => setImageFailed(true)}
                   />
+                ) : stillGeneratingImage ? (
+                  <div className="w-full h-full min-h-96 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                    <Loader2Icon className="size-10 animate-spin text-violet-300" />
+                    <div>
+                      <p className="text-lg font-semibold">Generating your image...</p>
+                      <p className="mt-2 text-sm text-gray-400 light:text-slate-600">
+                        This can take a little while. The page will update automatically.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full min-h-96 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                    <ImageIcon className="size-12 text-red-300" />
+                    <div>
+                      <p className="text-lg font-semibold">
+                        {project.error ? "Generation failed" : "Generated image unavailable"}
+                      </p>
+                      <p className="mt-2 text-sm text-gray-400 light:text-slate-600">
+                        {project.error ||
+                          "The project does not have a valid generated image URL yet."}
+                      </p>
+                    </div>
+                    <Link to="/generate" className="btn-secondary mt-2 inline-flex">
+                      Try New Generation
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
@@ -167,9 +218,9 @@ useEffect(() => {
               <h3 className="text-xl font-semibold mb-4">Actions</h3>
 
               <div className="flex flex-col gap-3">
-                <a href={project.generatedImage || "#"} download>
+                <a href={hasGeneratedImage ? project.generatedImage : "#"} download>
                   <GhostButton
-                    disabled={!project.generatedImage}
+                    disabled={!hasGeneratedImage}
                     className="w-full justify-center rounded-md py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ImageIcon className="size-4" />
@@ -177,9 +228,9 @@ useEffect(() => {
                   </GhostButton>
                 </a>
 
-                <a href={project.generatedVideo || "#"} download>
+                <a href={hasGeneratedVideo ? project.generatedVideo : "#"} download>
                   <GhostButton
-                    disabled={!project.generatedVideo}
+                    disabled={!hasGeneratedVideo}
                     className="w-full justify-center rounded-md py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <VideoIcon className="size-4" />
@@ -204,7 +255,7 @@ useEffect(() => {
               {!project.generatedVideo ? (
                 <PrimaryButton
                 onClick={handleGenerateVideo}
-                disabled={isGenerating}
+                disabled={isGenerating || !hasGeneratedImage}
                 className="w-full"
               >
                 {isGenerating ? (
