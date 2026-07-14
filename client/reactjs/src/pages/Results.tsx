@@ -25,6 +25,37 @@ const isUsableUrl = (url?: string | null) => {
   }
 };
 
+const getReadableError = (error?: string | null) => {
+  if (!error) return "";
+
+  try {
+    const parsed = JSON.parse(error);
+    const apiError = parsed?.error;
+
+    if (
+      apiError?.status === "RESOURCE_EXHAUSTED" ||
+      apiError?.code === 429 ||
+      String(apiError?.message || "").toLowerCase().includes("prepayment credits")
+    ) {
+      return "Google AI credits are depleted. Add billing credits in Google AI Studio, then try again.";
+    }
+
+    return apiError?.message || error;
+  } catch {
+    const normalizedError = error.toLowerCase();
+
+    if (
+      normalizedError.includes("resource_exhausted") ||
+      normalizedError.includes("prepayment credits") ||
+      normalizedError.includes("quota")
+    ) {
+      return "Google AI credits are depleted. Add billing credits in Google AI Studio, then try again.";
+    }
+
+    return error;
+  }
+};
+
 const Result = () => {
   const { projectId } = useParams();
   const { getToken } = useAuth();
@@ -137,6 +168,7 @@ const Result = () => {
   const hasGeneratedVideo = isUsableUrl(project.generatedVideo);
   const stillGeneratingImage =
     project.isGenerating && !hasGeneratedImage && !project.error;
+  const readableError = getReadableError(project.error);
 
   return (
     <div className="min-h-screen text-white p-6 md:p-12 mt-20 light:text-slate-950">
@@ -199,7 +231,7 @@ const Result = () => {
                         {project.error ? "Generation failed" : "Generated image unavailable"}
                       </p>
                       <p className="mt-2 text-sm text-gray-400 light:text-slate-600">
-                        {project.error ||
+                        {readableError ||
                           "The project does not have a valid generated image URL yet."}
                       </p>
                     </div>
@@ -240,39 +272,40 @@ const Result = () => {
               </div>
             </div>
 
-            {/* Video generation call-to-action */}
-            <div className="glass-panel p-6 rounded-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <VideoIcon className="size-24" />
-              </div>
+            {hasGeneratedImage && (
+              <div className="glass-panel p-6 rounded-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <VideoIcon className="size-24" />
+                </div>
 
-              <h3 className="text-xl font-semibold mb-2">Video Magic</h3>
+                <h3 className="text-xl font-semibold mb-2">Video Magic</h3>
 
-              <p className="text-gray-400 text-sm mb-6 light:text-slate-600">
-                Turn this static image into a dynamic video for social media.
-              </p>
+                <p className="text-gray-400 text-sm mb-6 light:text-slate-600">
+                  Turn this static image into a dynamic video for social media.
+                </p>
 
-              {!project.generatedVideo ? (
-                <PrimaryButton
-                onClick={handleGenerateVideo}
-                disabled={isGenerating || !hasGeneratedImage}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>Generating Video...</>
+                {!project.generatedVideo ? (
+                  <PrimaryButton
+                    onClick={handleGenerateVideo}
+                    disabled={isGenerating}
+                    className="w-full"
+                  >
+                    {isGenerating ? (
+                      <>Generating Video...</>
+                    ) : (
+                      <>
+                        <SparkleIcon className="size-4" />
+                        Generate Video
+                      </>
+                    )}
+                  </PrimaryButton>
                 ) : (
-                  <>
-                    <SparkleIcon className="size-4" />
-                    Generate Video
-                  </>
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-center text-sm font-medium">
+                    Video Generated Successfully!
+                  </div>
                 )}
-              </PrimaryButton>
-              ) : (
-                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-center text-sm font-medium">
-                Video Generated Successfully!
               </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>

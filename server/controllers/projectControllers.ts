@@ -15,6 +15,43 @@ import axios from 'axios';
 const PROJECT_CREATION_CREDIT_COST = 5;
 const IMAGE_GENERATION_MODEL = 'gemini-3-pro-image-preview';
 
+const getReadableGenerationError = (error: unknown) => {
+  const fallbackMessage = 'Image generation failed. Please try again.';
+  const rawMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : fallbackMessage;
+
+  try {
+    const parsed = JSON.parse(rawMessage);
+    const apiError = parsed?.error;
+
+    if (
+      apiError?.status === 'RESOURCE_EXHAUSTED' ||
+      apiError?.code === 429 ||
+      String(apiError?.message || '').toLowerCase().includes('prepayment credits')
+    ) {
+      return 'Google AI credits are depleted. Add billing credits in Google AI Studio, then try again.';
+    }
+
+    return apiError?.message || fallbackMessage;
+  } catch {
+    const normalizedMessage = rawMessage.toLowerCase();
+
+    if (
+      normalizedMessage.includes('resource_exhausted') ||
+      normalizedMessage.includes('prepayment credits') ||
+      normalizedMessage.includes('quota')
+    ) {
+      return 'Google AI credits are depleted. Add billing credits in Google AI Studio, then try again.';
+    }
+
+    return rawMessage || fallbackMessage;
+  }
+};
+
 const imageGenerationConfig = (aspectRatio: string): GenerateContentConfig => ({
   maxOutputTokens: 32768,
   temperature: 1,
@@ -179,13 +216,14 @@ const generateProjectImage = async ({
     });
   } catch (error: any) {
     Sentry.captureException(error);
+    const message = getReadableGenerationError(error);
 
     try {
       await prisma.project.update({
         where: { id: projectId },
         data: {
           isGenerating: false,
-          error: error.message || 'Image generation failed',
+          error: message,
         },
       });
     } catch (projectUpdateError) {
