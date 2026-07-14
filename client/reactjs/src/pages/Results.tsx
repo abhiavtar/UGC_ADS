@@ -114,6 +114,7 @@ const Result = () => {
         generatedVideo: data.videoUrl,
         isGenerating: false,
       });
+      window.dispatchEvent(new Event("credits:changed"));
       toast.success(data.message || "Video generated");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error.message);

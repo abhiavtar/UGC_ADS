@@ -66,6 +66,7 @@ try {
 })
 
 toast.success(data.message)
+window.dispatchEvent(new Event('credits:changed'));
 navigate('/result/' + data.projectId)
 
 } catch (error: any) {

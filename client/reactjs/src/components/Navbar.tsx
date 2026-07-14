@@ -88,6 +88,7 @@ export default function Navbar() {
          };
 
          window.addEventListener('focus', refreshCredits);
+         window.addEventListener('credits:changed', refreshCredits);
          document.addEventListener('visibilitychange', handleVisibilityChange);
 
          const intervalId =
@@ -97,6 +98,7 @@ export default function Navbar() {
 
          return () => {
            window.removeEventListener('focus', refreshCredits);
+           window.removeEventListener('credits:changed', refreshCredits);
            document.removeEventListener('visibilitychange', handleVisibilityChange);
 
            if (intervalId) {
