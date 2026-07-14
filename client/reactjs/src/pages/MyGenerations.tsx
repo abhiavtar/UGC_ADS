@@ -39,12 +39,16 @@ const MyGenerations = () => {
   };
 
   useEffect(() => {
+    if (!isLoaded) {
+        return;
+    }
+
     if (user) {
         fetchMyGenerations()
-    } else if (isLoaded && !user) {
+    } else {
         navigate('/')
     }
-}, [user])
+}, [isLoaded, user, navigate])
 
   return loading ? (
     <div className="flex items-center justify-center min-h-screen">

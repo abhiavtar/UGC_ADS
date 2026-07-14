@@ -28,20 +28,22 @@ function App() {
 			<LenisScroll />
 			<Navbar />
 
-			<Routes>
-				<Route path="/" element={<Home/>} />
-				<Route path="/generate" element={<Generator/>} />
-				<Route path="/result/:projectId" element={<Result/>} />
-				
-				<Route path="/my-generations" element={<MyGenerations/>} />
+			<main className="relative z-10 min-h-screen">
+				<Routes>
+					<Route path="/" element={<Home/>} />
+					<Route path="/generate" element={<Generator/>} />
+					<Route path="/result/:projectId" element={<Result/>} />
+					
+					<Route path="/my-generations" element={<MyGenerations/>} />
 
-				<Route path="/community" element={<Community/>} />
-				
-				<Route path="/plans" element={<Plans/>} />
-				
-				<Route path="/loading" element={<Loading/>} />
-				
-				</Routes>			
+					<Route path="/community" element={<Community/>} />
+					
+					<Route path="/plans" element={<Plans/>} />
+					
+					<Route path="/loading" element={<Loading/>} />
+					
+				</Routes>
+			</main>			
 			<Footer />
 		</>
 	);
