@@ -16,19 +16,25 @@ const MyGenerations = () => {
   const navigate = useNavigate();
   const [generations, setGenerations] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const fetchMyGenerations = async () => {
+    setLoading(true);
+    setErrorMessage("");
     try {
       const token = await getToken();
       const { data } = await api.get('/api/user/projects', {
           headers: { Authorization: `Bearer ${token}` }
       })
   
-      setGenerations(data.projects)
-      setLoading(false)
+      setGenerations(Array.isArray(data.projects) ? data.projects : [])
   } catch (error: any) {
-      toast.error(error?.response?.data?.message || error.message);
+      const message = error?.response?.data?.message || error.message || "Failed to load generations";
+      setErrorMessage(message);
+      toast.error(message);
       console.log(error);
+  } finally {
+      setLoading(false)
   }
   };
 
@@ -66,7 +72,15 @@ const MyGenerations = () => {
           ))}
         </div>
 
-        {generations.length === 0 && (
+        {errorMessage && (
+          <div className="mt-12 rounded-2xl border border-red-400/30 bg-red-950/20 p-6 text-center text-red-100 light:bg-red-50 light:text-red-700">
+            <p className="mb-4 text-lg font-medium">Could not load your generations.</p>
+            <p className="mb-5 text-sm opacity-80">{errorMessage}</p>
+            <PrimaryButton onClick={fetchMyGenerations}>Try Again</PrimaryButton>
+          </div>
+        )}
+
+        {!errorMessage && generations.length === 0 && (
           <div className="mt-12 text-center text-gray-400 light:text-slate-600">
             <p className="mb-4 text-xl font-medium">
               No generations found. Start creating your first generation!
